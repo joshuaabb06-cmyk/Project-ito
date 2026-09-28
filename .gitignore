@@ -1,0 +1,21 @@
+# --- Entorno virtual (se recrea con: python -m venv .venv + pip install -r requirements.txt) ---
+.venv/
+venv/
+env/
+
+# --- Archivos que Python genera solo ---
+__pycache__/
+*.py[cod]
+
+# --- Modelo de MediaPipe (~8 MB, se descarga con: python descargar_modelo.py) ---
+assets/modelos/*.task
+assets/modelos/*.descargando
+
+# --- Configuración de editores ---
+.vscode/
+.idea/
+
+# --- Archivos del sistema operativo ---
+Thumbs.db
+desktop.ini
+.DS_Store
