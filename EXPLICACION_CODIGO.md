@@ -216,7 +216,7 @@ qué gesto hay, en qué estado estamos) y los dibuja.
 
 | Método | Qué hace |
 |---|---|
-| `_cargar_imagen()` | Carga `assets/personaje.png` y la escala al tamaño de la casilla. Si no existe o falla, devuelve `None`. |
+| `cargar_imagen_personaje()` | Carga un PNG de `assets/personajes/` y lo escala al tamaño de la casilla. Si no existe o falla, devuelve `None` y se dibuja el dino de respaldo. |
 | `ir_a()` / `posicion()` | Hacen la **animación**: el personaje se desliza a la nueva casilla en 0.15 s, en lugar de "teletransportarse". También lo voltea hacia la izquierda o la derecha según hacia dónde camina. |
 | `_dibujar_respaldo()` | Si no hay imagen, dibuja un dinosaurio con círculos, elipses y triángulos de Pygame. |
 
@@ -227,7 +227,7 @@ qué gesto hay, en qué estado estamos) y los dibuja.
 | `__init__` | Calcula el tamaño de todo. Las columnas pares se dibujan delgadas (paredes) y las impares anchas (casillas), para que se vea como la imagen original. |
 | `dibujar_laberinto()` | El fondo azul, las paredes negras, los letreros ENTRADA/SALIDA, la estrella de la meta y el **destello rojo** cuando chocas. |
 | `dibujar_barra_superior()` | El título, el estado, los movimientos y el tiempo. |
-| `dibujar_panel_juego()` | El panel derecho durante el juego: **cámara pequeña** con la mano, nombre del gesto, barra de progreso y lista de gestos disponibles. |
+| `dibujar_panel_juego()` | El panel derecho durante el juego ("TU MANO"): **ícono del gesto** (sin mostrar la cámara), anillo y barra de progreso, encuadre con un punto donde está la mano, sonar y lista de gestos disponibles. |
 | `dibujar_calibracion()` | La pantalla inicial: cámara grande, "Mano detectada / NO detectada", un círculo por dedo (verde = estirado, rojo = doblado), pasos a seguir y una flecha amarilla al practicar direcciones. |
 | `superficie_camara()` | Convierte la imagen de OpenCV (formato BGR) a imagen de Pygame (formato RGB). |
 | `dibujar_mensaje()` | El recuadro oscuro semitransparente de "Pausa" y "¡Ganaste!". |
@@ -280,7 +280,7 @@ un archivo roto. Si el modelo ya existe, no hace nada (con `--forzar` lo vuelve 
 | `requirements.txt` | La lista de librerías con **versiones fijas**, para que el proyecto se instale igual en cualquier computadora. Las principales: `mediapipe` (detectar la mano), `opencv-contrib-python` (cámara e imágenes), `pygame-ce` (el juego) y `numpy` (cálculos con los puntos). |
 | `README.md` | Guía de **uso**: instalar, ejecutar, gestos, configuración y problemas comunes. |
 | `Laberinto IHC.jpeg` | La imagen original del laberinto. De ella salió la matriz de `config.py`: se midió dónde estaban las líneas negras y se revisó el color de cada tramo de pared. |
-| `assets/personaje.png` | El dinosaurio recortado de la imagen original, con fondo transparente. |
+| `assets/personajes/dino.png` | El dinosaurio recortado de la imagen original, con fondo transparente. Cada PNG de esta carpeta es un personaje elegible. |
 
 ---
 
@@ -338,3 +338,34 @@ un archivo roto. Si el modelo ya existe, no hace nada (con `--forzar` lo vuelve 
   el programa avisa con un error.
 - **¿Por qué la cámara va en un hilo aparte?** MediaPipe tarda ~30 ms por imagen. Si estuviera en el
   mismo ciclo que el dibujo, el juego se vería trabado.
+
+
+---
+
+## Mejoras de la versión vaquera (rama `mejoras-vaquero`)
+
+| Archivo | Qué hace |
+|---|---|
+| `main.py` | La máquina de estados creció: `MENU`, `DIFICULTAD`, `PERSONAJE`, `CONFIG`, `CALIBRACION`, `JUGANDO`, `PAUSA`, `GANASTE`, `PERDISTE`. El diccionario `ACCIONES` dice qué gesto hace qué en cada pantalla, y de ahí salen también las instrucciones del panel. |
+| `main.py → mover_jugador()` | Reglas de vidas: un choque quita una vida (si la dificultad tiene vidas), con `GRACIA_CHOQUE` segundos de protección. Si el movimiento fue por **mantener** la dirección (`control.repetido`) y hay pared, se ignora: así no se pierden vidas por quedarse apuntando. |
+| `main.py → actualizar()` | Lógica continua: tiempo, **sonar** (frecuencia según la distancia BFS a la meta), aviso de voz si se pierde la mano más de 2 s y "tics" mientras se sostiene un gesto. |
+| `control.py` | `ajustar_velocidad()` cambia los tiempos de movimiento (Lento/Normal/Rápido). `repetido` indica si el último disparo fue por repetición. |
+| `gestos.py` | La `Lectura` ahora trae `centro` (centro de la palma, de 0 a 1) para dibujar el encuadre sin mostrar la imagen de la cámara. |
+| `juego.py` | Dibujo de todas las pantallas con el tema vaquero. El laberinto fijo se dibuja **una sola vez** en una superficie (caché) y cada fotograma solo se copia: es más rápido. La niebla del modo noche es una superficie oscura con un hueco transparente que se mueve con el personaje. |
+| `tema.py` | Piezas de dibujo: tablas de madera, cactus, sombrero, estrella de sheriff, corazones, huellas e **íconos de gestos** hechos con figuras de Pygame. |
+| `sonido.py` | `pygame.mixer`: música en bucle, efectos con **paneo estéreo** (el choque se oye del lado de la pared), voz guía en un canal propio y volúmenes separados. |
+| `generar_sonidos.py` | Síntesis de audio con numpy: **Karplus-Strong** (cuerda de guitarra = ruido que pasa por un retardo con promedio), senoidales con vibrato (silbido) y senoidales que decaen (madera, campanas). Las notas que se pasan del final se suman al principio para que el bucle no "brinque". |
+| `generar_voces.py` | Llama a PowerShell (`System.Speech`) para convertir cada frase de `sonido.FRASES` en un `.wav`. |
+| `ajustes.py` | Guarda/carga `ajustes_usuario.json`. |
+
+### Accesibilidad aplicada (gameaccessibilityguidelines.com, nivel básico)
+
+- Toda la interfaz se controla con el **mismo método de entrada** que el juego (gestos).
+- Velocidad de gestos ajustable (sensibilidad / velocidad del juego).
+- **Volúmenes separados** para música, efectos y voz; los ajustes **se guardan**.
+- Varias **dificultades**; el modo Explorador nunca pierde y muestra pista.
+- Ninguna información depende **solo del sonido** (subtítulos, aviso de choque, barra de sonar) ni
+  **solo del color** (los choques tienen texto y sacudida; las vidas, número y corazones).
+- **Alto contraste** opcional; texto grande; se puede jugar desde el menú con un solo gesto (JUGAR
+  está preseleccionado).
+- **Tutorial interactivo** (prueba de gestos) antes de la primera partida.

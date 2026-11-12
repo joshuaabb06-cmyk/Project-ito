@@ -47,13 +47,13 @@ DIRECCIONALES = {Gesto.ARRIBA, Gesto.ABAJO, Gesto.IZQUIERDA, Gesto.DERECHA}
 NOMBRES = {
     Gesto.SIN_MANO: "Sin mano",
     Gesto.NINGUNO: "Gesto no reconocido",
-    Gesto.ARRIBA: "Índice ↑  Arriba",
-    Gesto.ABAJO: "Índice ↓  Abajo",
-    Gesto.IZQUIERDA: "Índice ←  Izquierda",
-    Gesto.DERECHA: "Índice →  Derecha",
+    Gesto.ARRIBA: "Índice arriba",
+    Gesto.ABAJO: "Índice abajo",
+    Gesto.IZQUIERDA: "Índice izquierda",
+    Gesto.DERECHA: "Índice derecha",
     Gesto.PALMA: "Palma abierta",
     Gesto.PUNO: "Puño",
-    Gesto.CUERNOS: "Cuernos (índice + meñique)",
+    Gesto.CUERNOS: "Cuernos",
 }
 
 # Dedos que se evalúan (el pulgar se IGNORA a propósito: es el que MediaPipe detecta peor
@@ -138,6 +138,9 @@ class Lectura:
     dedos: dict = field(default_factory=dict)
     angulo: float | None = None
     fps: float = 0.0
+    centro: tuple | None = None          # centro de la palma (x, y) de 0 a 1 en el encuadre.
+                                         # El juego NO muestra la cámara: con este dato dibuja un
+                                         # puntito para que el jugador sepa si su mano está centrada.
 
 
 # ============================================================================
@@ -254,12 +257,14 @@ class DetectorGestos:
             resultado = detector.detect_for_video(imagen, ts)
 
             # --- 3) Clasificación ---
-            gesto, dedos, angulo = Gesto.SIN_MANO, {}, None
+            gesto, dedos, angulo, centro = Gesto.SIN_MANO, {}, None, None
             if resultado.hand_landmarks:
                 alto, ancho = frame.shape[:2]
                 puntos_px = [(p.x * ancho, p.y * alto) for p in resultado.hand_landmarks[0]]
                 mundo = [(p.x, p.y, p.z) for p in resultado.hand_world_landmarks[0]]
                 gesto, dedos, angulo = clasificar(puntos_px, mundo)
+                palma = [resultado.hand_landmarks[0][i] for i in (0, 5, 9, 13, 17)]
+                centro = (sum(p.x for p in palma) / 5, sum(p.y for p in palma) / 5)
                 self._dibujar_mano(frame, puntos_px, gesto)
 
             # --- 4) Publicar la lectura para el juego ---
@@ -268,7 +273,7 @@ class DetectorGestos:
             t_prev = ahora
             contador += 1
             with self._lock:
-                self._lectura = Lectura(contador, ahora, frame, gesto, dedos, angulo, fps)
+                self._lectura = Lectura(contador, ahora, frame, gesto, dedos, angulo, fps, centro)
 
         if cam is not None:
             cam.release()

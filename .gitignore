@@ -19,3 +19,7 @@ assets/modelos/*.descargando
 Thumbs.db
 desktop.ini
 .DS_Store
+
+# --- Ajustes del jugador (cada quien tiene los suyos) ---
+ajustes_usuario.json
+ajustes_usuario.json.tmp

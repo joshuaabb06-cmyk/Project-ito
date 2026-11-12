@@ -2,7 +2,7 @@
 config.py — Configuración central de Project-ito.
 
 Todo lo que quieras ajustar (cámara, tiempos de los gestos, umbrales, tamaños,
-colores o el propio laberinto) está aquí, para no tener que tocar el resto del código.
+colores, dificultades, sonido o el propio laberinto) está aquí, para no tener que tocar el resto del código.
 """
 
 # ---------------------------------------------------------------------------
@@ -95,18 +95,90 @@ PANTALLA_COMPLETA = False  # True para la presentación en el proyector
 FPS = 60
 DURACION_ANIMACION = 0.15  # Segundos que tarda el personaje en deslizarse a la siguiente casilla
 
-RUTA_PERSONAJE = "assets/personaje.png"   # Si no existe se dibuja un personaje de respaldo
+# ---------------------------------------------------------------------------
+# PERSONAJES, FUENTES, SONIDO Y AJUSTES
+# ---------------------------------------------------------------------------
+# Cada imagen PNG (con fondo transparente) que pongan en esta carpeta aparece sola en
+# el menú PERSONAJE. El nombre del archivo es el que se muestra (cowboy_rex.png -> "Cowboy rex").
+CARPETA_PERSONAJES = "assets/personajes"
+RUTA_FUENTE_TITULOS = "assets/fuentes/Rye-Regular.ttf"   # Licencia SIL OFL (ver OFL-Rye.txt)
+CARPETA_SONIDOS = "assets/sonidos"   # se generan con: python generar_sonidos.py
+CARPETA_VOCES = "assets/voces"       # se generan con: python generar_voces.py (o graben las suyas)
+RUTA_AJUSTES = "ajustes_usuario.json"  # volúmenes, dificultad, personaje y récords (se guarda solo)
 
-# Colores (R, G, B) — inspirados en la imagen original
-COLOR_FONDO = (22, 27, 44)
-COLOR_PANEL = (32, 39, 61)
-COLOR_CAMINO = (159, 195, 230)
-COLOR_PARED = (10, 10, 12)
-COLOR_META = (255, 205, 60)
-COLOR_TEXTO = (240, 244, 250)
-COLOR_TEXTO_SUAVE = (160, 170, 195)
-COLOR_ACENTO = (90, 200, 120)
-COLOR_ALERTA = (235, 90, 90)
+# ---------------------------------------------------------------------------
+# DIFICULTADES (la ruta del laberinto es la misma; solo cambian las reglas)
+# ---------------------------------------------------------------------------
+#   vidas = None -> nunca pierdes      niebla = solo ves alrededor del personaje
+#   pista = huellas que marcan los siguientes pasos de la ruta más corta
+DIFICULTADES = {
+    "explorador": dict(nombre="Explorador", vidas=None, niebla=False, pista=True,
+                       descripcion=["No pierdes nunca.", "Los choques solo", "se cuentan.",
+                                    "Huellas te marcan", "el camino."]),
+    "sheriff": dict(nombre="Sheriff", vidas=3, niebla=False, pista=False,
+                    descripcion=["3 vidas.", "Cada choque quita", "una vida.", "Sin vidas:",
+                                 "vuelves a empezar."]),
+    "forajido": dict(nombre="Forajido", vidas=1, niebla=False, pista=False,
+                     descripcion=["1 sola vida.", "Si chocas, pierdes", "y vuelves a la",
+                                  "entrada.", "Récord de tiempo."]),
+    "noche": dict(nombre="Noche sin luna", vidas=3, niebla=True, pista=False,
+                  descripcion=["Solo ves lo que", "alumbra tu farol.", "El sonar te guía",
+                               "a la salida.", "3 vidas."]),
+}
+ORDEN_DIFICULTADES = ["explorador", "sheriff", "forajido", "noche"]
+GRACIA_CHOQUE = 1.0        # Segundos sin perder otra vida después de un choque
+RADIO_NIEBLA = 1.6         # Radio de luz del farol (en casillas) en "Noche sin luna"
+PASOS_PISTA = 3            # Cuántas huellas de pista se muestran en Explorador
+
+# Velocidad de gestos (Configuración): segundos para confirmar un movimiento y para repetirlo.
+VELOCIDADES = {"Lento": (0.8, 0.8), "Normal": (TIEMPO_MOVER, TIEMPO_REPETICION),
+               "Rápido": (0.35, 0.4)}
+
+# Sonar: un "bip" que suena más rápido y más agudo mientras más cerca estás de la salida.
+SONAR_INTERVALO_LEJOS = 1.6
+SONAR_INTERVALO_CERCA = 0.35
+SONAR_NIVELES = 6          # cuántos tonos distintos hay (archivos sonar_0 ... sonar_5)
+
+# ---------------------------------------------------------------------------
+# COLORES — TEMA VAQUERO (R, G, B)
+# ---------------------------------------------------------------------------
+COLOR_CIELO_ARRIBA = (247, 160, 87)
+COLOR_CIELO_ABAJO = (255, 222, 160)
+COLOR_SOL = (255, 238, 190)
+COLOR_MESA_1 = (196, 112, 70)
+COLOR_MESA_2 = (178, 98, 62)
+COLOR_ARENA = (214, 168, 108)
+COLOR_ARENA_PIEDRA = (196, 150, 92)
+COLOR_CACTUS = (76, 130, 62)
+
+COLOR_MADERA = (120, 72, 38)
+COLOR_MADERA_CLARA = (150, 92, 46)
+COLOR_MADERA_VETA = (98, 58, 30)
+COLOR_MADERA_OSCURA = (64, 36, 18)
+
+COLOR_CAMINO = (236, 205, 150)
+COLOR_CAMINO_GRANO = (226, 192, 134)
+COLOR_PARED = (92, 52, 26)
+COLOR_PARED_LUZ = (150, 94, 48)
+
+COLOR_TEXTO = (255, 244, 222)          # texto claro sobre madera
+COLOR_TEXTO_SUAVE = (240, 214, 170)
+COLOR_TINTA = (52, 28, 12)             # texto oscuro sobre el cielo / arena
+COLOR_PERGAMINO = (250, 236, 205)      # fondo de los íconos de gesto
+COLOR_META = (255, 196, 46)            # oro (estrella de sheriff, selección)
+COLOR_META_OSCURO = (150, 96, 10)
+COLOR_ACENTO = (150, 210, 110)         # verde: mano detectada / acción lista
+COLOR_ALERTA = (214, 62, 44)           # rojo: choque, vidas, sin mano
+COLOR_NOCHE = (18, 10, 30)             # oscuridad del modo "Noche sin luna"
+COLOR_APAGADO = (110, 90, 80)          # corazón vacío / elementos inactivos
+
+# Alto contraste (Configuración): camino blanco y paredes negras.
+COLOR_CONTRASTE_CAMINO = (255, 255, 255)
+COLOR_CONTRASTE_PARED = (0, 0, 0)
+
+# Nombres antiguos (los usa prueba_gestos.py)
+COLOR_FONDO = COLOR_MADERA_OSCURA
+COLOR_PANEL = COLOR_MADERA
 
 # ---------------------------------------------------------------------------
 # DEMO AUTOMÁTICA (etapa 1, sin cámara)

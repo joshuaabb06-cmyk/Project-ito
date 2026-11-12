@@ -5,7 +5,11 @@ Juego de laberinto controlado **solo con gestos de la mano**, detectados con la 
 ni para mover, iniciar, pausar, reiniciar o salir.
 
 El laberinto es el de la imagen `Laberinto IHC.jpeg` (8×8 casillas), convertido a una matriz
-de 0 (camino) y 1 (pared).
+de 0 (camino) y 1 (pared). Tiene **tema vaquero** (cercas de madera, desierto y estrella de sheriff),
+menú inicial, 4 dificultades, selección de personaje, música, efectos y voz guía.
+
+**La cámara nunca se muestra en pantalla**: solo se usa para detectar la mano. En su lugar se ve un
+ícono del gesto detectado y un puntito que indica dónde está la mano dentro del encuadre.
 
 ---
 
@@ -31,6 +35,21 @@ python -m venv .venv
 `descargar_modelo.py` baja `assets/modelos/hand_landmarker.task` (~8 MB). MediaPipe 1.x ya no trae
 el modelo incluido. Después el juego funciona **sin internet**.
 
+### Sonido (una sola vez)
+
+```powershell
+.\.venv\Scripts\python.exe generar_voces.py     # voz guía con la voz de Windows (sin internet)
+.\.venv\Scripts\python.exe generar_sonidos.py   # (opcional) la música y efectos ya vienen en el repo
+```
+
+- **Música y efectos** se generan con código (`generar_sonidos.py`, con numpy): son 100% originales,
+  así que no hay problemas de derechos de autor. Ya vienen generados en `assets/sonidos/`.
+- **Voz guía:** `generar_voces.py` usa la voz en español de Windows. Si quieren usar **sus propias
+  voces**, graben cada frase y guárdenla en `assets/voces/` con el mismo nombre (`jugar.wav`,
+  `pausa.mp3`…). La lista de frases está en `FRASES`, dentro de `sonido.py`. El script no
+  sobreescribe audios que ya existan.
+- Todo lo que dice la voz también aparece como **subtítulo** en pantalla.
+
 ## Ejecutar
 
 ```powershell
@@ -46,33 +65,54 @@ bloquea el script de activación, usa la forma de arriba, que no necesita activa
 
 ## Gestos
 
-| Gesto | Sostener | Acción |
-|---|---|---|
-| ☝️ **Índice apuntando** ↑ ↓ ← → (demás dedos doblados) | 0.5 s | Avanza **una casilla** en esa dirección. Si lo sigues sosteniendo, avanza otra cada 0.5 s. |
-| ✋ **Palma abierta** (4 dedos extendidos) | 1 s | Calibración → **iniciar**. En el juego → **pausar / reanudar**. |
-| ✊ **Puño** | 2 s | **Reiniciar** el laberinto (en juego, pausa o en "¡Ganaste!"). |
-| 🤘 **Cuernos** (índice + meñique) | 3 s | **Salir** del programa (funciona en cualquier pantalla). |
+| Gesto | Sostener | En el juego | En los menús |
+|---|---|---|---|
+| **Índice apuntando** ↑ ↓ ← → (demás dedos doblados) | 0.5 s | Avanza **una casilla**. Si lo sostienes, avanza otra cada 0.5 s | Mover la selección / cambiar un valor |
+| **Palma abierta** (4 dedos extendidos) | 1 s | **Pausar** | **Confirmar** |
+| **Puño** | 2 s | **Reiniciar** | **Regresar** (y guardar) |
+| **Cuernos** (índice + meñique) | 3 s | **Salir** del programa | **Salir** del programa |
 
 - El **pulgar se ignora** en todos los gestos: es el dedo que MediaPipe detecta peor.
-- Si apuntas en **diagonal**, no pasa nada (zona muerta de ±30° alrededor de cada eje). Así se evita
-  un movimiento equivocado.
+- Si apuntas en **diagonal**, no pasa nada (zona muerta de ±30° alrededor de cada eje).
 - La cámara funciona como **espejo**: si apuntas a tu derecha, el personaje va a la derecha.
 - Los gestos de control (palma, puño, cuernos) se disparan **una sola vez**. Para repetirlos hay que
-  cambiar de gesto o bajar la mano.
-- En el panel derecho siempre se ve qué gesto se reconoce, una **barra de carga** con lo que va a
-  pasar al completarse y la lista de gestos que funcionan en esa pantalla.
+  cambiar de gesto o bajar la mano. Mientras se sostienen suena un "tic" que sube de tono.
+- La velocidad de los gestos se puede cambiar en **Configuración** (Lento / Normal / Rápido).
 
 ## Pantallas
 
-1. **Calibración:** cámara grande con los puntos de la mano, "Mano detectada / NO detectada", qué
-   dedos se ven extendidos y una lista de pasos. Puedes practicar las 4 direcciones (aparece una
-   flecha amarilla). Con palma abierta 1 s empieza el juego.
-2. **Juego:** laberinto + cámara pequeña en la esquina con la mano dibujada y el gesto en texto.
-3. **Pausa** y **¡Ganaste!** (con movimientos, tiempo y choques).
-4. **Error de cámara / modelo:** si la cámara no abre o se desconecta, aparece un mensaje y se
-   **reintenta sola cada 3 s**. No hace falta reiniciar el programa.
+1. **Menú inicial:** Jugar, Dificultad, Personaje, Configuración y Salir.
+2. **Dificultad** (la ruta del laberinto es la misma; cambian las reglas):
+
+   | Nivel | Reglas |
+   |---|---|
+   | Explorador | Nunca pierdes. Huellas marcan los siguientes 3 pasos de la ruta más corta |
+   | Sheriff | 3 vidas. Cada choque quita una |
+   | Forajido | 1 vida: si chocas, pierdes |
+   | Noche sin luna | Solo ves alrededor del personaje (farol). Un sonar te guía. 3 vidas |
+
+   Después de un choque hay **1 s de gracia** sin perder otra vida, y **mantener** una dirección
+   hasta topar con la cerca no cuenta como choque (solo cuenta si intentas el movimiento a propósito).
+   Se guarda el **récord** de tiempo de cada dificultad.
+3. **Personaje:** cada PNG con fondo transparente que pongan en `assets/personajes/` aparece solo.
+   El sombrero vaquero se coloca automáticamente en la parte más alta de la imagen (se puede apagar).
+4. **Configuración:** volumen de música, efectos y voz por separado, velocidad de gestos, sonar
+   (solo de noche / siempre / nunca), sombrero y alto contraste. Se guarda en `ajustes_usuario.json`.
+5. **Prueba de gestos** (solo la primera vez que juegas): ícono grande del gesto, encuadre de la
+   mano, qué dedos se ven extendidos y una lista de pasos.
+6. **Juego:** laberinto + panel "TU MANO" con el gesto detectado, barra de carga, encuadre y gestos
+   disponibles. **Pausa** (Continuar / Reiniciar / Menú), **¡Ganaste!** y **¡Perdiste!**
+7. **Error de cámara / modelo:** se **reintenta sola cada 3 s**.
 
 La X de la ventana (con el mouse) queda como salida de emergencia.
+
+### Sonido
+
+- Música en bucle para el menú y para el juego (estilo western: guitarra y silbido).
+- Efectos: pasos, choque contra la cerca (se oye del lado de la pared), vida perdida, ganar, perder
+  y sonidos de menú.
+- **Sonar:** un "bip" más rápido y más agudo mientras más cerca estás de la salida. Tiene su
+  equivalente visual en el panel (barra "cercanía a la salida").
 
 ---
 
@@ -80,17 +120,25 @@ La X de la ventana (con el mouse) queda como salida de emergencia.
 
 ```
 Proyect-ito/
-├── main.py              # Punto de entrada: máquina de estados (calibración, juego, pausa, ganaste)
+├── main.py              # Punto de entrada: máquina de estados (menús, dificultad, juego, pausa...)
 ├── config.py            # TODOS los parámetros ajustables + la matriz del laberinto
 ├── gestos.py            # Hilo de cámara + MediaPipe HandLandmarker + clasificación de gestos
 ├── control.py           # Anti-rebote: votación entre fotogramas y temporizadores de "sostener"
 ├── laberinto.py         # Lógica pura: matriz, colisiones, meta, BFS
-├── juego.py             # Todo el dibujo con Pygame (laberinto, personaje, panel, pantallas)
+├── juego.py             # Todo el dibujo con Pygame (menús, laberinto, personaje, panel, pantallas)
+├── tema.py              # Piezas del tema vaquero (madera, cactus, sombrero, íconos de gestos)
+├── sonido.py            # Música, efectos, paneo y voz guía (pygame.mixer)
+├── ajustes.py           # Guarda/carga ajustes_usuario.json (volúmenes, dificultad, récords...)
+├── generar_sonidos.py   # Crea la música y los efectos con código (numpy)
+├── generar_voces.py     # Crea la voz guía con la voz de Windows
 ├── demo_automatica.py   # Etapa 1: demo sin cámara ni teclado
 ├── prueba_gestos.py     # Etapa 2: ventana de prueba de gestos
 ├── descargar_modelo.py  # Descarga el modelo de MediaPipe
 ├── assets/
-│   ├── personaje.png    # Personaje (el dinosaurio de la imagen). Si lo borras, se dibuja uno de respaldo
+│   ├── personajes/      # Un PNG por personaje (si está vacía, se dibuja un dino de respaldo)
+│   ├── fuentes/         # Rye-Regular.ttf (fuente western, licencia SIL OFL)
+│   ├── sonidos/         # Música y efectos generados
+│   ├── voces/           # Voz guía (generada o grabada por el equipo)
 │   └── modelos/hand_landmarker.task
 ├── Laberinto IHC.jpeg   # Imagen original del laberinto
 └── requirements.txt
@@ -109,6 +157,10 @@ Proyect-ito/
 | `VENTANA_VOTACION`, `VOTOS_MINIMOS` | Filtro de parpadeos |
 | `LABERINTO`, `INICIO`, `META`, `PASO` | El laberinto y cómo se avanza |
 | `TAMANO_CASILLA`, `GROSOR_PARED`, `PANTALLA_COMPLETA` | Tamaño en pantalla (`True` para el proyector) |
+| `DIFICULTADES`, `GRACIA_CHOQUE`, `RADIO_NIEBLA`, `PASOS_PISTA` | Reglas de cada nivel |
+| `VELOCIDADES` | Tiempos de Lento / Normal / Rápido |
+| `SONAR_*` | Ritmo del sonar |
+| `COLOR_*` | Paleta del tema vaquero y del alto contraste |
 
 ### ¿Cómo se representa el laberinto?
 
@@ -116,6 +168,16 @@ La imagen tiene 8×8 casillas con paredes **delgadas**. Se convierte a una matri
 (2·8+1). Las posiciones **impares** son casillas y las **pares** son las paredes (1) o huecos (0)
 entre casillas. Por eso `PASO = 2`: cada movimiento avanza de una casilla a la siguiente y **revisa
 la posición intermedia**. Si ahí hay un 1, es un choque. La ruta más corta tiene 46 casillas.
+
+---
+
+## Derechos de autor
+
+- **Música y efectos:** generados con código por el equipo (`generar_sonidos.py`).
+- **Voz:** sintetizada con la voz de Windows o grabada por el equipo.
+- **Fuente Rye:** SIL Open Font License 1.1 (`assets/fuentes/OFL-Rye.txt`); se puede incluir libremente.
+- **Gráficos del tema** (madera, cactus, sombrero, estrella, íconos de mano): dibujados con figuras de Pygame.
+- **Personajes:** usen solo dibujos propios o con licencia libre.
 
 ---
 
@@ -127,6 +189,8 @@ la posición intermedia**. Si ahí hay un 1, es un choque. La ruta más corta ti
 | Tarda unos segundos en ver la cámara | Normal con `msmf` (~4 s). Con `"dshow"` abre más rápido pero da menos FPS. |
 | "Falta el modelo de MediaPipe" | Ejecuta `descargar_modelo.py` (necesita internet). |
 | No detecta bien la mano | Buena luz de frente (no una ventana detrás), mano a 40-60 cm, palma hacia la cámara. |
+| No se oye nada | Revisa el volumen en Configuración. Si faltan archivos, ejecuta `generar_sonidos.py` / `generar_voces.py`. |
+| La voz se oye en inglés | Instala una voz en español (Configuración de Windows > Hora e idioma > Voz) y ejecuta `generar_voces.py --forzar`. |
 | Confunde gestos | Abre `prueba_gestos.py`: muestra qué dedos ve extendidos y el ángulo del índice. Ajusta `UMBRAL_DEDO_EXTENDIDO`. |
 
 ### Lista para el día de la presentación
@@ -136,3 +200,4 @@ la posición intermedia**. Si ahí hay un 1, es un choque. La ruta más corta ti
 - [ ] Fondo detrás de la mano sin otras manos o personas cerca.
 - [ ] `PANTALLA_COMPLETA = True` si se proyecta.
 - [ ] Cerrar apps que usen la cámara.
+- [ ] Voces generadas (`assets/voces/` tiene archivos) y bocinas conectadas.
