@@ -13,7 +13,7 @@ import time
 import pygame
 
 import config as C
-from juego import Vista
+from juego import Vista, lista_personajes
 from laberinto import Laberinto
 
 # Movimientos iniciales que chocan a propósito: la casilla de inicio tiene pared arriba y a la
@@ -23,7 +23,7 @@ CHOQUES_DE_PRUEBA = ["ARRIBA", "DERECHA", "IZQUIERDA"]
 
 def main():
     lab = Laberinto(C.LABERINTO, C.INICIO, C.META, C.PASO)
-    vista = Vista(lab, "Project-ito — Demo automática")
+    vista = Vista(lab, "Project-ito — Demo automática", personaje=lista_personajes()[0][0])
     reloj = pygame.time.Clock()
 
     plan = CHOQUES_DE_PRUEBA + lab.resolver()

@@ -39,6 +39,15 @@ class ControlGestos:
         self.estable = Gesto.SIN_MANO   # gesto que pasó la votación
         self._t_inicio = time.monotonic()
         self._disparos = 0              # cuántas veces se disparó el gesto actual
+        self.duraciones = dict(DURACIONES)
+        self.t_repeticion = C.TIEMPO_REPETICION
+        self.repetido = False           # True si el último disparo fue por MANTENER la dirección
+
+    def ajustar_velocidad(self, t_mover, t_repeticion):
+        """Cambia qué tan rápido se confirman y repiten los movimientos (menú Configuración)."""
+        for g in DIRECCIONALES:
+            self.duraciones[g] = t_mover
+        self.t_repeticion = t_repeticion
 
     def _votar(self, gesto):
         """Capa 1: mayoría de votos en la ventana. Sin mayoría clara -> NINGUNO."""
@@ -70,17 +79,19 @@ class ControlGestos:
             self._disparos = 0
 
         # Capa 2: ¿ya se sostuvo lo suficiente?
-        duracion = DURACIONES.get(self.estable)
+        duracion = self.duraciones.get(self.estable)
         if duracion is None:
             return None
         transcurrido = ahora - self._t_inicio
         if self._disparos == 0 and transcurrido >= duracion:
             self._disparos = 1
+            self.repetido = False
             return self.estable
         # Repetición: sostener una dirección sigue moviendo cada TIEMPO_REPETICION segundos.
         if (self.estable in DIRECCIONALES and C.REPETIR_MOVIMIENTO and self._disparos >= 1 and
-                transcurrido >= duracion + self._disparos * C.TIEMPO_REPETICION):
+                transcurrido >= duracion + self._disparos * self.t_repeticion):
             self._disparos += 1
+            self.repetido = True
             return self.estable
         return None
 
@@ -90,15 +101,15 @@ class ControlGestos:
         Devuelve None si el gesto actual no hace nada.
         """
         ahora = time.monotonic() if ahora is None else ahora
-        duracion = DURACIONES.get(self.estable)
+        duracion = self.duraciones.get(self.estable)
         if duracion is None:
             return None
         transcurrido = ahora - self._t_inicio
         if self._disparos == 0:
             return min(1.0, transcurrido / duracion)
         if self.estable in DIRECCIONALES and C.REPETIR_MOVIMIENTO:
-            siguiente = duracion + self._disparos * C.TIEMPO_REPETICION
-            return max(0.0, min(1.0, 1 - (siguiente - transcurrido) / C.TIEMPO_REPETICION))
+            siguiente = duracion + self._disparos * self.t_repeticion
+            return max(0.0, min(1.0, 1 - (siguiente - transcurrido) / self.t_repeticion))
         return 1.0   # ya se disparó: queda "lleno" hasta que cambies de gesto
 
     def ya_disparado(self):
