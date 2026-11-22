@@ -232,10 +232,50 @@ def _mano(sup, cx, cy, s, extendidos, pulgar, relleno, linea):
         pygame.draw.rect(sup, linea, r, g, border_radius=r.height // 2)
 
 
+def mano_apuntando(sup, centro, direccion, s, relleno=(247, 214, 170), linea=None):
+    """
+    Mano con SOLO el dedo índice estirado apuntando en `direccion` (los demás doblados).
+    Se dibuja apuntando hacia arriba en una superficie aparte y luego se gira.
+    `s` = tamaño de referencia (el dibujo mide unos 2 s de alto).
+    """
+    linea = linea or C.COLOR_TINTA
+    lado = int(s * 2.6)
+    capa = pygame.Surface((lado, lado), pygame.SRCALPHA)
+    c = lado / 2
+    g = max(2, int(s * 0.08))
+    puno = pygame.Rect(0, 0, int(s * 0.95), int(s * 0.78))
+    puno.midtop = (c + s * 0.05, c - s * 0.05)
+    indice = pygame.Rect(0, 0, int(s * 0.38), int(s * 0.9))
+    indice.midbottom = (puno.left + s * 0.24, puno.top + s * 0.18)
+    r_ind = indice.width // 2
+    pygame.draw.rect(capa, relleno, indice, border_radius=r_ind)
+    pygame.draw.rect(capa, linea, indice, g, border_radius=r_ind)
+    pygame.draw.rect(capa, relleno, puno, border_radius=int(s * 0.22))
+    pygame.draw.rect(capa, linea, puno, g, border_radius=int(s * 0.22))
+    # une el índice con el puño (borra la línea de unión)
+    pygame.draw.rect(capa, relleno, (indice.x + g, puno.top - g, indice.width - 2 * g, 2 * g + 2))
+    # dedos doblados: tres nudillos marcados
+    for k in range(3):
+        x = indice.right + s * 0.04 + k * s * 0.17
+        pygame.draw.line(capa, linea, (x, puno.top + s * 0.06), (x, puno.top + s * 0.3), max(1, g - 1))
+    # pulgar cruzado al frente
+    pulgar = pygame.Rect(0, 0, int(s * 0.6), int(s * 0.24))
+    pulgar.midleft = (puno.left - s * 0.06, puno.centery + s * 0.08)
+    pygame.draw.rect(capa, relleno, pulgar, border_radius=pulgar.height // 2)
+    pygame.draw.rect(capa, linea, pulgar, g, border_radius=pulgar.height // 2)
+    # uña dorada en la punta: marca CUÁL dedo es el que importa
+    una = pygame.Rect(0, 0, int(indice.width * 0.62), int(s * 0.2))
+    una.midtop = (indice.centerx, indice.top + g + 1)
+    pygame.draw.rect(capa, C.COLOR_META, una, border_radius=una.width // 2)
+    giro = {"ARRIBA": 0, "IZQUIERDA": 90, "ABAJO": 180, "DERECHA": -90}[direccion]
+    girada = pygame.transform.rotate(capa, giro)
+    sup.blit(girada, girada.get_rect(center=(int(centro[0]), int(centro[1]))))
+
+
 def icono_gesto(sup, gesto, centro, tam, activo=True):
     """
-    Dibuja el gesto detectado: flechas para las direcciones y una mano para palma, puño
-    y cuernos. `gesto` es el texto del Gesto ("ARRIBA", "PALMA", "SIN_MANO", ...).
+    Dibuja el gesto detectado: una mano apuntando con el índice para las direcciones y una
+    mano para palma, puño y cuernos. `gesto` es el texto del Gesto ("ARRIBA", "PALMA", "SIN_MANO", ...).
     `tam` = radio aproximado del ícono.
     """
     cx, cy = centro
@@ -245,7 +285,12 @@ def icono_gesto(sup, gesto, centro, tam, activo=True):
     tinta, piel = C.COLOR_TINTA, (247, 214, 170)
     s = tam * 0.82
     if gesto in ("ARRIBA", "ABAJO", "IZQUIERDA", "DERECHA"):
-        flecha(sup, centro, gesto, tam * 0.62, C.COLOR_META if activo else (210, 180, 120), tinta)
+        # Mano apuntando con el índice + flechita en la misma dirección, junto al borde.
+        dx, dy = {"ARRIBA": (0, -1), "ABAJO": (0, 1), "IZQUIERDA": (-1, 0), "DERECHA": (1, 0)}[gesto]
+        mano_apuntando(sup, (cx - dx * tam * 0.14, cy - dy * tam * 0.14), gesto, tam * 0.78,
+                       piel if activo else (220, 205, 185), tinta if activo else C.COLOR_APAGADO)
+        flecha(sup, (cx + dx * tam * 0.68, cy + dy * tam * 0.68), gesto, tam * 0.22,
+               C.COLOR_META if activo else (210, 180, 120), tinta)
     elif gesto == "PALMA":
         _mano(sup, cx + int(s * 0.08), cy - int(s * 0.02), s, [True] * 4, "fuera", piel, tinta)
     elif gesto == "PUNO":
@@ -263,3 +308,52 @@ def icono_gesto(sup, gesto, centro, tam, activo=True):
     else:
         # SIN_MANO: no se ve ninguna mano.
         texto(sup, "?", fuente_titulo(int(tam * 1.1)), C.COLOR_ALERTA, (cx, cy + int(tam * 0.08)), "center")
+
+
+_cache_mini = {}
+
+
+def icono_mini(sup, gesto, centro, tam=13):
+    """
+    Ícono pequeño para listas de gestos (leyendas y pie de página). Se dibuja el ícono grande
+    una vez y se reduce con suavizado, así se ve nítido aunque sea chico.
+    `gesto`: "INDICE" (4 direcciones), "VERTICAL", "HORIZONTAL" o un gesto normal.
+    """
+    nombre = {"INDICE": "ARRIBA", "VERTICAL": "ARRIBA", "HORIZONTAL": "DERECHA"}.get(gesto, gesto)
+    clave = (nombre, tam)
+    if clave not in _cache_mini:
+        grande = pygame.Surface((140, 140), pygame.SRCALPHA)
+        icono_gesto(grande, nombre, (70, 70), 66, True)
+        _cache_mini[clave] = pygame.transform.smoothscale(grande, (tam * 2 + 4, tam * 2 + 4))
+    img = _cache_mini[clave]
+    sup.blit(img, img.get_rect(center=(int(centro[0]), int(centro[1]))))
+
+
+def diagrama_posicion(sup, rect, fuente):
+    """
+    Dibujo de cómo colocarse: pantalla con cámara a la izquierda, mano con la palma hacia la
+    pantalla a la derecha y una flecha punteada de 40-60 cm entre ambas.
+    """
+    tinta = C.COLOR_TINTA
+    cy = rect.centery
+    pantalla = pygame.Rect(0, 0, int(rect.width * 0.26), int(rect.height * 0.46))
+    pantalla.midleft = (rect.x + 10, cy - 10)
+    pygame.draw.rect(sup, (60, 60, 70), pantalla, border_radius=8)
+    pygame.draw.rect(sup, (150, 200, 230), pantalla.inflate(-14, -14), border_radius=4)
+    pygame.draw.rect(sup, (60, 60, 70), (pantalla.centerx - 6, pantalla.bottom, 12, 18))
+    pygame.draw.rect(sup, (60, 60, 70), (pantalla.centerx - 30, pantalla.bottom + 16, 60, 8), border_radius=3)
+    pygame.draw.circle(sup, (30, 30, 30), (pantalla.centerx, pantalla.top + 4), 5)        # cámara
+    pygame.draw.circle(sup, (90, 220, 120), (pantalla.centerx, pantalla.top + 4), 2)
+    texto(sup, "cámara", fuente, tinta, (pantalla.centerx, pantalla.top - 6), "midbottom")
+    s = rect.height * 0.3
+    mano_x = rect.right - int(s * 0.9)
+    _mano(sup, mano_x, cy - int(s * 0.1), s, [True] * 4, "fuera", (247, 214, 170), tinta)
+    etiqueta = "palma hacia la pantalla"
+    ancho_et = fuente.size(etiqueta)[0]
+    texto(sup, etiqueta, fuente, tinta, (min(mano_x, rect.right - ancho_et // 2), cy + int(s * 0.95)), "midtop")
+    x0, x1 = pantalla.right + 14, mano_x - int(s * 0.75)
+    for x in range(x0, x1 - 10, 14):                          # flecha punteada
+        pygame.draw.line(sup, tinta, (x, cy), (min(x + 8, x1), cy), 3)
+    pygame.draw.polygon(sup, tinta, [(x0, cy), (x0 + 12, cy - 7), (x0 + 12, cy + 7)])
+    pygame.draw.polygon(sup, tinta, [(x1, cy), (x1 - 12, cy - 7), (x1 - 12, cy + 7)])
+    texto(sup, "40-60 cm", fuente_titulo(17), tinta, ((x0 + x1) // 2, cy - 10), "midbottom")

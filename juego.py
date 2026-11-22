@@ -29,7 +29,7 @@ def lista_personajes():
     personajes = []
     for ruta in rutas:
         nombre = os.path.splitext(os.path.basename(ruta))[0].replace("_", " ").replace("-", " ")
-        personajes.append((os.path.basename(ruta), nombre.capitalize()))
+        personajes.append((os.path.basename(ruta), nombre[:1].upper() + nombre[1:]))
     return personajes or [(None, "Dino (dibujo)")]
 
 
@@ -200,6 +200,7 @@ class Vista:
         self.dir_choque = None
         self._aviso = ("", -10.0)
         self._subtitulo = ("", -10.0)
+        self.subtitulo_arriba = False      # en el tutorial el subtítulo va arriba para no tapar nada
         self._niebla = None
 
     # ------------------------------------------------------------ coordenadas
@@ -413,13 +414,19 @@ class Vista:
 
     def dibujar_subtitulo(self, ahora):
         txt, t = self._subtitulo
-        if txt and ahora - t < 1.8:
-            img = self.f_media.render(f"«{txt}»", True, (255, 255, 255))
-            r = img.get_rect(midbottom=(self.ancho // 2, self.alto - 48))
-            caja = pygame.Surface(r.inflate(26, 12).size, pygame.SRCALPHA)
-            caja.fill((0, 0, 0, 185))
-            self.pantalla.blit(caja, r.inflate(26, 12))
-            self.pantalla.blit(img, r)
+        if txt and ahora - t < 1.8 + 0.03 * len(txt):
+            renglones = self._envolver(f"«{txt}»", self.f_media, 860)[:3]
+            alto = 30 * len(renglones)
+            caja_r = pygame.Rect(0, 0, max(self.f_media.size(r)[0] for r in renglones) + 28, alto + 12)
+            if self.subtitulo_arriba:
+                caja_r.midtop = (self.ancho // 2, C.ALTO_BARRA_SUPERIOR + 4)
+            else:
+                caja_r.midbottom = (self.ancho // 2, self.alto - 46)
+            caja = pygame.Surface(caja_r.size, pygame.SRCALPHA)
+            caja.fill((0, 0, 0, 190))
+            self.pantalla.blit(caja, caja_r)
+            for i, r in enumerate(renglones):
+                self.texto(r, self.f_media, (255, 255, 255), (caja_r.centerx, caja_r.y + 6 + i * 30), "midtop")
 
     # =========================================================== PANEL DE GESTO
     def indicador_mano(self, rect, lectura, estado_camara):
@@ -473,12 +480,15 @@ class Vista:
             self.texto("(sin efecto aquí)", self.f_chica, C.COLOR_TEXTO_SUAVE, (cx, y), "midtop")
         return y + 44
 
-    def _leyenda(self, x, y, ancho, filas):
-        self.texto("Gestos", self.f_chica_n, C.COLOR_TEXTO_SUAVE, (x, y))
-        for i, (gesto, tiempo, accion) in enumerate(filas):
-            yy = y + 24 + i * 25
-            self.texto(f"{gesto}  {tiempo:g} s", self.f_chica, C.COLOR_TEXTO, (x, yy))
-            self.texto(accion, self.f_chica, C.COLOR_META, (x + ancho, yy), "topright")
+    def _leyenda(self, x, y, ancho, filas, titulo="Gestos"):
+        """Lista de gestos con su ícono: filas = [(icono, texto, segundos, acción), ...]."""
+        self.texto(titulo, self.f_chica_n, C.COLOR_TEXTO_SUAVE, (x, y))
+        for i, (icono, gesto, tiempo, accion) in enumerate(filas):
+            cy = y + 40 + i * 34
+            T.icono_mini(self.pantalla, icono, (x + 15, cy), 15)
+            txt = f"{gesto}  {tiempo:g} s" if tiempo else gesto
+            self.texto(txt, self.f_chica, C.COLOR_TEXTO, (x + 40, cy), "midleft")
+            self.texto(accion, self.f_chica_n, C.COLOR_META, (x + ancho, cy), "midright")
 
     def dibujar_panel_juego(self, lectura, estable, progreso, accion, nota, leyenda, estado_camara,
                             vidas=None, sonar=None):
@@ -553,8 +563,11 @@ class Vista:
 
     # ========================================================= PANTALLAS DE MENÚ
     def _pie(self, partes):
-        self.texto("    ·    ".join(partes), self.f_chica_n, C.COLOR_TINTA, (C.MARGEN + 8, self.alto - 22),
-                   "midleft")
+        """Ayuda de gestos al pie de la pantalla: partes = [(icono, texto), ...]."""
+        x, cy = C.MARGEN + 8, self.alto - 24
+        for icono, txt in partes:
+            T.icono_mini(self.pantalla, icono, (x + 13, cy), 13)
+            x = self.texto(txt, self.f_chica_n, C.COLOR_TINTA, (x + 32, cy), "midleft").right + 26
 
     def _mini_mano(self, lectura, estable, estado_camara):
         """Esquina inferior derecha de los menús: ícono del gesto + encuadre (sin cámara)."""
@@ -586,11 +599,12 @@ class Vista:
             grande = self._personaje_menu = Personaje(self.personaje.archivo, 190, self.personaje.con_sombrero)
         grande.dibujar_en(self.pantalla, (215, 440 + 6 * math.sin(ahora * 2)), izquierda=False)
         for i, (etiqueta, valor) in enumerate(opciones):
-            r = pygame.Rect(0, 0, 400, 60)
-            r.midtop = (self.ancho // 2, 196 + i * 82)
+            r = pygame.Rect(0, 0, 400, 58)
+            r.midtop = (self.ancho // 2, 186 + i * 76)
             self._boton(r, etiqueta, i == seleccion, progreso if i == seleccion else None, valor)
         self._mini_mano(lectura, estable, estado_camara)
-        self._pie(["Índice arriba/abajo: elegir", "Palma 1 s: confirmar", "Cuernos 3 s: salir"])
+        self._pie([("VERTICAL", "Dedo índice arriba/abajo: elegir"), ("PALMA", "Palma abierta 1 s: confirmar"),
+                   ("CUERNOS", "Cuernos 3 s: salir")])
 
     def dibujar_dificultad(self, claves, seleccion, progreso, records, lectura, estable, estado_camara):
         self.dibujar_fondo()
@@ -622,7 +636,8 @@ class Vista:
             if sel and progreso:
                 self.barra(pygame.Rect(r.x, r.bottom + 14, r.width, 10), progreso)
         self._mini_mano(lectura, estable, estado_camara)
-        self._pie(["Índice izq./der.: elegir", "Palma 1 s: confirmar", "Puño 2 s: regresar"])
+        self._pie([("HORIZONTAL", "Dedo índice izq./der.: elegir"), ("PALMA", "Palma 1 s: confirmar"),
+                   ("PUNO", "Puño 2 s: regresar")])
 
     def dibujar_personajes(self, personajes, seleccion, progreso, lectura, estable, estado_camara, ahora):
         self.dibujar_fondo()
@@ -645,19 +660,21 @@ class Vista:
         if progreso:
             self.barra(pygame.Rect(caja.x, caja.bottom + 86, caja.width, 10), progreso)
         self._mini_mano(lectura, estable, estado_camara)
-        self._pie(["Índice izq./der.: cambiar", "Palma 1 s: elegir", "Puño 2 s: regresar"])
+        self._pie([("HORIZONTAL", "Dedo índice izq./der.: cambiar"), ("PALMA", "Palma 1 s: elegir"),
+                   ("PUNO", "Puño 2 s: regresar")])
 
     def dibujar_configuracion(self, filas, seleccion, progreso, lectura, estable, estado_camara):
         """`filas` = [(nombre, valor), ...]. valor: int 0-100 (barra), texto (opción) o None (botón)."""
         self.dibujar_fondo()
-        caja = pygame.Rect(60, 140, 760, 70 + len(filas) * 56)
-        self.texto("CONFIGURACIÓN", self.f_grande, C.COLOR_TEXTO, (caja.centerx, 46), "midtop", sombra=C.COLOR_TINTA)
+        alto_fila = 50
+        caja = pygame.Rect(60, 128, 760, 44 + len(filas) * alto_fila)
+        self.texto("CONFIGURACIÓN", self.f_grande, C.COLOR_TEXTO, (caja.centerx, 40), "midtop", sombra=C.COLOR_TINTA)
         T.tabla(self.pantalla, caja)
         for i, (nombre, valor) in enumerate(filas):
-            y = caja.y + 34 + i * 56
+            y = caja.y + 22 + i * alto_fila
             sel = i == seleccion
             if sel:
-                hl = pygame.Rect(caja.x + 16, y - 6, caja.width - 32, 48)
+                hl = pygame.Rect(caja.x + 16, y - 4, caja.width - 32, 44)
                 pygame.draw.rect(self.pantalla, C.COLOR_MADERA_CLARA, hl, border_radius=6)
                 pygame.draw.rect(self.pantalla, C.COLOR_META, hl, 3, border_radius=6)
                 if progreso and valor is None:
@@ -673,60 +690,127 @@ class Vista:
             elif valor is not None:
                 self.texto(f"<   {valor}   >", self.f_media, C.COLOR_TEXTO, (caja.x + 560, y + 18), "center")
         self._mini_mano(lectura, estable, estado_camara)
-        self._pie(["Índice arriba/abajo: elegir", "Índice izq./der.: cambiar", "Puño 2 s: guardar y regresar"])
+        self._pie([("VERTICAL", "Índice arriba/abajo: elegir"), ("HORIZONTAL", "Índice izq./der.: cambiar"),
+                   ("PUNO", "Puño 2 s: guardar y regresar")])
 
-    # ============================================================ CALIBRACIÓN
-    def dibujar_calibracion(self, lectura, estable, progreso, accion, nota, leyenda, estado_camara,
-                            flecha_practica, ya_practico):
-        """Prueba de gestos antes de jugar. Sin cámara: ícono grande + encuadre + dedos."""
+    # ============================================================== TUTORIAL
+    def _envolver(self, txt, fuente, ancho):
+        """Parte un texto en renglones que quepan en `ancho` píxeles."""
+        renglones, actual = [], ""
+        for palabra in txt.split():
+            prueba = f"{actual} {palabra}".strip()
+            if fuente.size(prueba)[0] <= ancho:
+                actual = prueba
+            else:
+                renglones.append(actual)
+                actual = palabra
+        return renglones + ([actual] if actual else [])
+
+    def _dedos(self, x, y, lectura, estado_camara):
+        mano = lectura.gesto.value != "SIN_MANO" and estado_camara == "ok"
+        for i, (nombre, clave) in enumerate((("Índice", "indice"), ("Medio", "medio"),
+                                             ("Anular", "anular"), ("Meñique", "menique"))):
+            ext = lectura.dedos.get(clave) if mano else None
+            col = C.COLOR_ACENTO if ext else (C.COLOR_APAGADO if ext is None else C.COLOR_ALERTA)
+            yy = y + i * 26
+            pygame.draw.circle(self.pantalla, col, (x + 8, yy + 10), 8)
+            pygame.draw.circle(self.pantalla, C.COLOR_MADERA_OSCURA, (x + 8, yy + 10), 8, 2)
+            estado = "estirado" if ext else ("doblado" if ext is not None else "—")
+            self.texto(f"{nombre}: {estado}", self.f_chica, C.COLOR_TEXTO, (x + 24, yy))
+
+    def dibujar_tutorial(self, indice, pasos, exito, progreso, pista, lectura, estable, estado_camara,
+                         ahora, accion=None):
+        """
+        Tutorial interactivo: a la izquierda el paso actual (instrucciones + dibujo de CÓMO hacer
+        el gesto) y lo que la cámara ve ahora; a la derecha el encuadre y el estado de cada dedo.
+        """
+        from gestos import NOMBRES
+        paso = pasos[indice]
+        objetivo = paso["objetivo"]
         zona = pygame.Rect(C.MARGEN + 20, C.ALTO_BARRA_SUPERIOR + C.MARGEN,
                            self.rect_panel.x - 2 * C.MARGEN - 40, self.rect_lab.height)
         T.tabla(self.pantalla, zona)
-        self.texto("Prueba tus gestos", self.f_grande, C.COLOR_TEXTO, (zona.centerx, zona.y + 18), "midtop",
+        # Puntitos de avance (uno por paso).
+        for i in range(len(pasos)):
+            cx = zona.x + 30 + i * 26
+            hecho = i < indice or (i == indice and exito)
+            pygame.draw.circle(self.pantalla, C.COLOR_ACENTO if hecho else
+                               (C.COLOR_META if i == indice else C.COLOR_MADERA_OSCURA), (cx, zona.y + 24), 8)
+        etiqueta = "¡Terminado!" if objetivo == "FIN" else f"Paso {indice + 1} de {len(pasos) - 1}"
+        self.texto(etiqueta, self.f_chica_n, C.COLOR_TEXTO_SUAVE, (zona.right - 20, zona.y + 24), "midright")
+        self.texto(paso["titulo"], self.f_grande, C.COLOR_TEXTO, (zona.x + 24, zona.y + 44),
                    sombra=C.COLOR_MADERA_OSCURA)
-        self.texto("Pon tu mano frente a la cámara, a unos 40-60 cm, y apunta con el índice.",
-                   self.f_normal, C.COLOR_TEXTO_SUAVE, (zona.centerx, zona.y + 90), "midtop")
-        centro_icono = (zona.centerx, zona.y + 250)
-        T.icono_gesto(self.pantalla, (flecha_practica or estable.value), centro_icono, 120,
-                      estable.value not in ("SIN_MANO", "NINGUNO") or bool(flecha_practica))
-        if flecha_practica:
-            pygame.draw.circle(self.pantalla, C.COLOR_ACENTO, centro_icono, 128, 6)
-        from gestos import NOMBRES
-        self.texto(NOMBRES[estable], self.f_titulo, C.COLOR_TEXTO, (zona.centerx, zona.y + 384), "midtop")
-        # Encuadre + estado de cada dedo.
-        ind = pygame.Rect(zona.x + 40, zona.bottom - 150, 160, 120)
-        estado_txt, color = self.indicador_mano(ind, lectura, estado_camara)
-        self.texto(estado_txt, self.f_media, color, (ind.right + 24, ind.y + 6))
-        mano = lectura.gesto.value != "SIN_MANO" and estado_camara == "ok"
-        x = ind.right + 24
-        for nombre, clave in (("Índice", "indice"), ("Medio", "medio"), ("Anular", "anular"),
-                              ("Meñique", "menique")):
-            ext = lectura.dedos.get(clave) if mano else None
-            col = C.COLOR_ACENTO if ext else (C.COLOR_APAGADO if ext is None else C.COLOR_ALERTA)
-            pygame.draw.circle(self.pantalla, col, (x + 8, ind.y + 66), 8)
-            r = self.texto(nombre, self.f_chica, C.COLOR_TEXTO, (x + 22, ind.y + 56))
-            x = r.right + 18
-        self.texto("Verde = dedo extendido", self.f_chica, C.COLOR_TEXTO_SUAVE, (ind.right + 24, ind.y + 92))
+        y = zona.y + 124
+        for linea in paso["lineas"]:
+            self.texto(linea, self.f_normal, C.COLOR_TEXTO, (zona.x + 26, y))
+            y += 30
 
+        # Dibujo de cómo se hace ("ASÍ:").
+        derecha = pygame.Rect(zona.x + 340, zona.y + 112, zona.width - 360, 250)
+        if objetivo == "POSICION":
+            pygame.draw.rect(self.pantalla, C.COLOR_PERGAMINO, derecha, border_radius=8)
+            T.diagrama_posicion(self.pantalla, derecha.inflate(-20, -40), self.f_chica)
+        elif objetivo == "FIN":
+            T.estrella_sheriff(self.pantalla, derecha.center, 90)
+        else:
+            self.texto("ASÍ:", self.f_titulo, C.COLOR_META, (derecha.x, derecha.y))
+            T.icono_gesto(self.pantalla, objetivo, (derecha.centerx + 20, derecha.centery + 10), 108)
+
+        # Lo que la cámara ve ahora ("TÚ:") + pista.
+        abajo = pygame.Rect(zona.x + 16, zona.bottom - 214, zona.width - 32, 198)
+        pygame.draw.rect(self.pantalla, C.COLOR_MADERA_OSCURA, abajo, border_radius=8)
+        self.texto("TÚ:", self.f_titulo, C.COLOR_META, (abajo.x + 16, abajo.y + 10))
+        activo = estable.value not in ("SIN_MANO", "NINGUNO")
+        centro_icono = (abajo.x + 92, abajo.y + 112)
+        T.icono_gesto(self.pantalla, estable.value, centro_icono, 62, activo)
+        correcto = exito or (objetivo not in ("POSICION", "FIN") and estable.value == objetivo)
+        if objetivo not in ("FIN",) and (correcto or (activo and objetivo != "POSICION")):
+            insignia = (centro_icono[0] + 46, centro_icono[1] - 46)
+            pygame.draw.circle(self.pantalla, C.COLOR_ACENTO if correcto else C.COLOR_ALERTA, insignia, 18)
+            pygame.draw.circle(self.pantalla, C.COLOR_MADERA_OSCURA, insignia, 18, 3)
+            if correcto:
+                pygame.draw.lines(self.pantalla, (255, 255, 255), False,
+                                  [(insignia[0] - 8, insignia[1]), (insignia[0] - 2, insignia[1] + 7),
+                                   (insignia[0] + 9, insignia[1] - 7)], 4)
+            else:
+                for d in (-1, 1):
+                    pygame.draw.line(self.pantalla, (255, 255, 255), (insignia[0] - 7, insignia[1] - 7 * d),
+                                     (insignia[0] + 7, insignia[1] + 7 * d), 4)
+        tx = abajo.x + 180
+        ancho_txt = abajo.right - tx - 18
+        self.texto(NOMBRES[estable], self.f_media, C.COLOR_TEXTO, (tx, abajo.y + 18))
+        if exito:
+            self.texto("¡Muy bien!", self.f_grande, C.COLOR_ACENTO, (tx, abajo.y + 60), sombra=(0, 0, 0))
+        else:
+            yy = abajo.y + 56
+            if pista:
+                for renglon in self._envolver(pista, self.f_media, ancho_txt)[:3]:
+                    self.texto(renglon, self.f_media, C.COLOR_META, (tx, yy))
+                    yy += 30
+            elif accion:
+                self.texto(accion, self.f_media, C.COLOR_ACENTO, (tx, yy))
+            if progreso:
+                self.barra(pygame.Rect(tx, abajo.bottom - 34, ancho_txt, 14), progreso,
+                           C.COLOR_ACENTO if progreso >= 1 else C.COLOR_META)
+
+        # Panel derecho: encuadre, dedos y para qué sirve cada gesto.
         panel = self.rect_panel.inflate(0, -2 * C.MARGEN)
         T.tabla(self.pantalla, panel)
         px, ancho = panel.x + 18, panel.width - 36
-        pasos = [("1. Cámara lista", estado_camara == "ok"), ("2. Mano detectada", mano),
-                 ("3. Apunta con el índice", ya_practico), ("4. Palma 1 s para jugar", False)]
-        for i, (txt, hecho) in enumerate(pasos):
-            yy = panel.y + 18 + i * 32
-            pygame.draw.circle(self.pantalla, C.COLOR_ACENTO if hecho else C.COLOR_APAGADO, (px + 8, yy + 13),
-                               8, 0 if hecho else 2)
-            self.texto(txt, self.f_normal, C.COLOR_ACENTO if hecho else C.COLOR_TEXTO, (px + 26, yy))
-        y = panel.y + 160
-        self.texto("Acción", self.f_chica_n, C.COLOR_TEXTO_SUAVE, (px, y))
-        if nota:
-            self.texto(nota, self.f_chica, C.COLOR_TEXTO_SUAVE, (px, y + 24))
-        elif accion and progreso is not None:
-            self.texto(f"Sostén para: {accion}", self.f_normal, C.COLOR_TEXTO, (px, y + 22))
-            self.barra(pygame.Rect(px, y + 52, ancho, 12), progreso,
-                       C.COLOR_ACENTO if progreso >= 1 else C.COLOR_META)
-        self._leyenda(px, panel.y + 250, ancho, leyenda)
+        self.texto("TU MANO", self.f_titulo, C.COLOR_TEXTO, (panel.centerx, panel.y + 12), "midtop",
+                   sombra=C.COLOR_MADERA_OSCURA)
+        ind = pygame.Rect(px, panel.y + 56, 150, 112)
+        estado_txt, color = self.indicador_mano(ind, lectura, estado_camara)
+        self.texto("Encuadre", self.f_chica_n, C.COLOR_TEXTO_SUAVE, (ind.right + 12, ind.y))
+        for i, renglon in enumerate(self._envolver(estado_txt, self.f_chica_n, panel.right - ind.right - 30)):
+            self.texto(renglon, self.f_chica_n, color, (ind.right + 12, ind.y + 26 + i * 20))
+        self._dedos(px, ind.bottom + 14, lectura, estado_camara)
+        filas = [("INDICE", "Índice", None, "Mover / elegir"), ("PALMA", "Palma", None, "Confirmar / pausa"),
+                 ("PUNO", "Puño", None, "Regresar / reiniciar"), ("CUERNOS", "Cuernos", None, "Salir")]
+        self._leyenda(px, ind.bottom + 132, ancho, filas, "¿Para qué sirve cada gesto?")
+        if objetivo not in ("PUNO", "FIN"):
+            self.texto("Puño 2 s: saltar tutorial", self.f_chica, C.COLOR_TEXTO_SUAVE,
+                       (panel.centerx, panel.bottom - 30), "midtop")
 
     # ================================================================= ERROR
     def dibujar_error(self, mensaje):

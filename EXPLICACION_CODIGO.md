@@ -369,3 +369,26 @@ un archivo roto. Si el modelo ya existe, no hace nada (con `--forzar` lo vuelve 
 - **Alto contraste** opcional; texto grande; se puede jugar desde el menú con un solo gesto (JUGAR
   está preseleccionado).
 - **Tutorial interactivo** (prueba de gestos) antes de la primera partida.
+
+
+---
+
+## Tutorial, señalización y lector de voz (rama `tutorial-talkback`)
+
+Cambios hechos a partir de la prueba con usuarios: faltaba un tutorial, no quedaba claro qué es
+"índice" ni cómo poner la mano, y la voz guía casi no se escuchaba.
+
+| Archivo | Qué hace |
+|---|---|
+| `tutorial.py` | Lista `PASOS` (objetivo, título, instrucciones, texto que se lee) y la función `pista()`, que compara lo que pide el paso con lo que ve la cámara y devuelve un consejo concreto. |
+| `main.py → Estado.TUTORIAL` | Avanza cuando el gesto confirmado es el del paso; el paso 1 se cumple con la mano centrada 1.5 s. Tras "¡Muy bien!" espera 1.5 s y pasa al siguiente. Si la misma pista dura 3 s, se lee en voz alta (máximo cada 5 s). En el tutorial los cuernos **no** cierran el juego, y puño 2 s lo salta. |
+| `main.py → hablar()` / `anunciar_pantalla()` | Textos del lector: al entrar a cada pantalla, al cambiar de opción (con su valor o descripción), al cambiar un ajuste, al chocar ("Pared a la izquierda. Te quedan 2 vidas"), al ganar o perder (pasos y tiempo). |
+| `voz.py` | Abre un proceso de PowerShell con `System.Speech` y le manda cada frase por la entrada estándar: puede leer cualquier texto al momento, sin internet. Si falla, `disponible = False` y se usan los WAV. |
+| `sonido.py` | `hablar()` usa la voz en vivo o el WAV de respaldo (normalizado, porque la voz de Windows salía bajita) y **baja la música** mientras se habla. |
+| `tema.py → mano_apuntando()` | Dibuja una mano con solo el índice estirado (uña dorada para marcar el dedo) y la gira hacia la dirección. `icono_mini()` reduce el ícono grande con suavizado para las leyendas. `diagrama_posicion()` dibuja pantalla, cámara, 40-60 cm y palma. |
+| `juego.py → dibujar_tutorial()` | Pantalla del tutorial: instrucciones, "ASÍ:" (gesto correcto), "TÚ:" (gesto detectado con ✓/✗), pista, encuadre y estado de cada dedo. |
+
+Recomendaciones de gameaccessibilityguidelines.com que esto refuerza: *Include interactive
+tutorials*, *Provide subtitles for all important speech*, *Ensure no essential information is
+conveyed by sounds alone*, *Use simple clear language* y *Provide details of accessibility features
+in-game*.
