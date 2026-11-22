@@ -35,20 +35,18 @@ python -m venv .venv
 `descargar_modelo.py` baja `assets/modelos/hand_landmarker.task` (~8 MB). MediaPipe 1.x ya no trae
 el modelo incluido. Después el juego funciona **sin internet**.
 
-### Sonido (una sola vez)
+### Voz y sonido
 
-```powershell
-.\.venv\Scripts\python.exe generar_voces.py     # voz guía con la voz de Windows (sin internet)
-.\.venv\Scripts\python.exe generar_sonidos.py   # (opcional) la música y efectos ya vienen en el repo
-```
-
+- **Lector de voz (tipo TalkBack):** el juego lee en voz alta cada pantalla, opción, valor,
+  descripción y aviso (vidas, choques, pistas del tutorial) con la **voz de Windows en vivo**, sin
+  internet y sin pasos extra. Mientras habla, la música baja de volumen. Se puede apagar en
+  **Configuración → Lector de voz**. Todo lo que dice también sale como **subtítulo**.
+- Si la voz de Windows no arranca, se usan los audios de `assets/voces/` como respaldo
+  (`generar_voces.py` los crea, o graben los suyos con los nombres de `assets/voces/LEEME.txt`).
+- Si la voz se oye en inglés: instala una voz en español en Windows (Configuración > Hora e idioma >
+  Voz > Agregar voces > Español).
 - **Música y efectos** se generan con código (`generar_sonidos.py`, con numpy): son 100% originales,
   así que no hay problemas de derechos de autor. Ya vienen generados en `assets/sonidos/`.
-- **Voz guía:** `generar_voces.py` usa la voz en español de Windows. Si quieren usar **sus propias
-  voces**, graben cada frase y guárdenla en `assets/voces/` con el mismo nombre (`jugar.wav`,
-  `pausa.mp3`…). La lista de frases está en `FRASES`, dentro de `sonido.py`. El script no
-  sobreescribe audios que ya existan.
-- Todo lo que dice la voz también aparece como **subtítulo** en pantalla.
 
 ## Ejecutar
 
@@ -67,7 +65,7 @@ bloquea el script de activación, usa la forma de arriba, que no necesita activa
 
 | Gesto | Sostener | En el juego | En los menús |
 |---|---|---|---|
-| **Índice apuntando** ↑ ↓ ← → (demás dedos doblados) | 0.5 s | Avanza **una casilla**. Si lo sostienes, avanza otra cada 0.5 s | Mover la selección / cambiar un valor |
+| **Dedo índice** (el que está junto al pulgar) apuntando ↑ ↓ ← →, demás dedos doblados | 0.5 s | Avanza **una casilla**. Si lo sostienes, avanza otra cada 0.5 s | Mover la selección / cambiar un valor |
 | **Palma abierta** (4 dedos extendidos) | 1 s | **Pausar** | **Confirmar** |
 | **Puño** | 2 s | **Reiniciar** | **Regresar** (y guardar) |
 | **Cuernos** (índice + meñique) | 3 s | **Salir** del programa | **Salir** del programa |
@@ -81,7 +79,12 @@ bloquea el script de activación, usa la forma de arriba, que no necesita activa
 
 ## Pantallas
 
-1. **Menú inicial:** Jugar, Dificultad, Personaje, Configuración y Salir.
+1. **Menú inicial:** Jugar, Tutorial, Dificultad, Personaje, Configuración y Salir.
+   **Tutorial** (se abre solo la primera vez que juegas y se puede repetir desde el menú):
+   8 pasos guiados con voz: cómo colocar la mano frente a la cámara (dibujo con la distancia),
+   índice arriba / abajo / izquierda / derecha, palma, puño y cuernos. Cada paso muestra **"ASÍ:"**
+   (dibujo del gesto correcto) y **"TÚ:"** (lo que la cámara ve ahora, con ✓ o ✗) y da pistas
+   concretas ("dobla los demás dedos: deja solo el índice"). Puño 2 s salta el tutorial.
 2. **Dificultad** (la ruta del laberinto es la misma; cambian las reglas):
 
    | Nivel | Reglas |
@@ -96,10 +99,10 @@ bloquea el script de activación, usa la forma de arriba, que no necesita activa
    Se guarda el **récord** de tiempo de cada dificultad.
 3. **Personaje:** cada PNG con fondo transparente que pongan en `assets/personajes/` aparece solo.
    El sombrero vaquero se coloca automáticamente en la parte más alta de la imagen (se puede apagar).
-4. **Configuración:** volumen de música, efectos y voz por separado, velocidad de gestos, sonar
+4. **Configuración:** lector de voz sí/no, volumen de voz, música y efectos por separado, velocidad de gestos, sonar
    (solo de noche / siempre / nunca), sombrero y alto contraste. Se guarda en `ajustes_usuario.json`.
-5. **Prueba de gestos** (solo la primera vez que juegas): ícono grande del gesto, encuadre de la
-   mano, qué dedos se ven extendidos y una lista de pasos.
+5. **Íconos de gestos:** las direcciones se muestran con una **mano apuntando con el índice**
+   (con la punta dorada) en el panel, las leyendas y el pie de los menús.
 6. **Juego:** laberinto + panel "TU MANO" con el gesto detectado, barra de carga, encuadre y gestos
    disponibles. **Pausa** (Continuar / Reiniciar / Menú), **¡Ganaste!** y **¡Perdiste!**
 7. **Error de cámara / modelo:** se **reintenta sola cada 3 s**.
@@ -128,9 +131,11 @@ Proyect-ito/
 ├── juego.py             # Todo el dibujo con Pygame (menús, laberinto, personaje, panel, pantallas)
 ├── tema.py              # Piezas del tema vaquero (madera, cactus, sombrero, íconos de gestos)
 ├── sonido.py            # Música, efectos, paneo y voz guía (pygame.mixer)
+├── voz.py               # Lector de voz en vivo con la voz de Windows (System.Speech)
+├── tutorial.py          # Pasos, textos y pistas del tutorial
 ├── ajustes.py           # Guarda/carga ajustes_usuario.json (volúmenes, dificultad, récords...)
 ├── generar_sonidos.py   # Crea la música y los efectos con código (numpy)
-├── generar_voces.py     # Crea la voz guía con la voz de Windows
+├── generar_voces.py     # (Opcional) audios de respaldo de la voz guía
 ├── demo_automatica.py   # Etapa 1: demo sin cámara ni teclado
 ├── prueba_gestos.py     # Etapa 2: ventana de prueba de gestos
 ├── descargar_modelo.py  # Descarga el modelo de MediaPipe
@@ -189,8 +194,9 @@ la posición intermedia**. Si ahí hay un 1, es un choque. La ruta más corta ti
 | Tarda unos segundos en ver la cámara | Normal con `msmf` (~4 s). Con `"dshow"` abre más rápido pero da menos FPS. |
 | "Falta el modelo de MediaPipe" | Ejecuta `descargar_modelo.py` (necesita internet). |
 | No detecta bien la mano | Buena luz de frente (no una ventana detrás), mano a 40-60 cm, palma hacia la cámara. |
-| No se oye nada | Revisa el volumen en Configuración. Si faltan archivos, ejecuta `generar_sonidos.py` / `generar_voces.py`. |
-| La voz se oye en inglés | Instala una voz en español (Configuración de Windows > Hora e idioma > Voz) y ejecuta `generar_voces.py --forzar`. |
+| No se oye nada | Revisa el volumen en Configuración y en Windows. Si faltan efectos, ejecuta `generar_sonidos.py`. |
+| No se oye la voz | Revisa que **Lector de voz** esté en "Sí" y lee la consola: debe decir `[Voz] Lector de voz listo`. Si dice otra cosa, cópiala y revísenla. |
+| La voz se oye en inglés | Instala una voz en español (Configuración de Windows > Hora e idioma > Voz). |
 | Confunde gestos | Abre `prueba_gestos.py`: muestra qué dedos ve extendidos y el ángulo del índice. Ajusta `UMBRAL_DEDO_EXTENDIDO`. |
 
 ### Lista para el día de la presentación
@@ -200,4 +206,4 @@ la posición intermedia**. Si ahí hay un 1, es un choque. La ruta más corta ti
 - [ ] Fondo detrás de la mano sin otras manos o personas cerca.
 - [ ] `PANTALLA_COMPLETA = True` si se proyecta.
 - [ ] Cerrar apps que usen la cámara.
-- [ ] Voces generadas (`assets/voces/` tiene archivos) y bocinas conectadas.
+- [ ] Bocinas conectadas y, al abrir el juego, la consola dice `[Voz] Lector de voz listo`.

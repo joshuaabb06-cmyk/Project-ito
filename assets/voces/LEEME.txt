@@ -1,4 +1,6 @@
-Aquí van los audios de la voz guía (.wav, .ogg o .mp3).
+Audios de RESPALDO de la voz guía (.wav, .ogg o .mp3).
+Normalmente no hacen falta: el juego lee todo en vivo con la voz de Windows (voz.py).
+Solo se usan si esa voz no está disponible.
 
 Opción 1: generarlos con la voz de Windows:   python generar_voces.py
 Opción 2: grabarlos ustedes. Usen exactamente estos nombres de archivo (la frase va entre comillas):

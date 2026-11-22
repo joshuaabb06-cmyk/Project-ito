@@ -12,7 +12,8 @@ import config as C
 PREDETERMINADOS = {
     "musica": 60,             # volumen 0-100
     "efectos": 80,
-    "voz": 90,
+    "voz": 100,
+    "lector": True,           # lector de voz (TalkBack): lee menús, opciones y avisos
     "velocidad": "Normal",    # clave de C.VELOCIDADES
     "sonar": "Solo de noche",  # "Solo de noche" | "Siempre" | "Nunca"
     "sombrero": True,
@@ -20,6 +21,7 @@ PREDETERMINADOS = {
     "dificultad": "sheriff",
     "personaje": None,        # nombre de archivo en assets/personajes (None = el primero)
     "records": {},            # dificultad -> mejor tiempo en segundos
+    "tutorial_visto": False,  # la primera vez que se juega se muestra el tutorial
 }
 OPCIONES_SONAR = ["Solo de noche", "Siempre", "Nunca"]
 
